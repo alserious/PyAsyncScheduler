@@ -5,7 +5,7 @@ import time
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-# import asyncio
+import asyncio
 from dataclasses import dataclass
 from asyncio import (
     get_event_loop,
@@ -98,6 +98,7 @@ class AsyncScheduler:
 
         # set_event_loop(self.loop)
 
+        # self.sleep_timer = 0
         self.sleep_timer = 0.2
         self.jobs = deque()
 
@@ -135,11 +136,19 @@ class AsyncScheduler:
                         pool=AsyncScheduler.define_pool(job.pool),
                     )
                 case "async":
-                    await self.run_async_job(
-                        job.func,
-                        args=job.args,
-                        kwargs=job.kwargs,
-                    )
+                    match job.status:
+                        case "PENDING":
+                            task = await self.run_async_job(
+                                job.func,
+                                args=job.args,
+                                kwargs=job.kwargs,
+                            )
+                            job.status = "PROCESSING"
+                            job.func = task
+                            self.jobs.append(job)
+                        case "PROCESSING":
+                            await self.processing_async_job(job.func)
+
             # ...
             # check status jobs and run if ok
             await sleep(self.sleep_timer)
@@ -196,9 +205,53 @@ class AsyncScheduler:
         kwargs: dict,
     ) -> None:
         logger.debug("starting async job")
-        await job(*args, **kwargs)
-        logger.debug("finished async job")
+
         # loop = get_event_loop()
+        # loop.create_task()
+
+        import asyncio
+
+        asyncio.gather
+
+        task = asyncio.create_task(job(*args, **kwargs))
+
+        # await task
+
+        # asyncio.t
+
+        # await job(*args, **kwargs)
+        logger.debug("finished async job")
+
+        return task
+
+        # loop.create_task(job, args, kwargs)
+        # self.event_loop.call_at()
+        # self.event_loop.time()
+
+    async def processing_async_job(self, job: asyncio.Task) -> None:
+        logger.debug("start processing async job")
+
+        # loop = get_event_loop()
+        # loop.create_task()
+
+        # import asyncio
+
+        logger.debug(job)
+        logger.debug(type(job))
+
+        if job.done:
+            logger.debug("async job finished")
+            return
+        else:
+            logger.debug("async job not finished")
+            
+
+        # asyncio.create_task(job(*args, **kwargs))
+
+        # asyncio.t
+
+        # await job(*args, **kwargs)
+        logger.debug("finished processing async job")
         # loop.create_task(job, args, kwargs)
         # self.event_loop.call_at()
         # self.event_loop.time()
@@ -212,19 +265,21 @@ def test(sleep_timer):
     print(f"sync hello world! {sleep_timer}")
 
 
-@async_monitor
+# @async_monitor
 async def async_test(sleep_timer):
-    import asyncio
+    sleep_timer = 3
+    # import asyncio
 
+    print(f"async_test start! {sleep_timer}")
     await asyncio.sleep(sleep_timer)
-    print(f"async hello world! {sleep_timer}")
+    print(f"async_test finished! {sleep_timer}")
 
 
 sc = AsyncScheduler()
 for i in range(1, 5):
     # sc.add_sync_job(test, args=(i,))
     # sc.add_sync_job(test, args=(i,), kwargs={"sleep_timer": i})
-    sc.add_sync_job(test, args=(5,), kwargs={}, pool="thread")
+    # sc.add_sync_job(test, args=(5,), kwargs={}, pool="thread")
     sc.add_async_job(async_test, args=(5,), kwargs={})
 
     # with cProfile.Profile() as pr:
